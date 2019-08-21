@@ -26,7 +26,9 @@ HEADERS = %i[
 ].freeze
 
 URI_OPTIONS = {
-  'User-Agent' => "Ruby/#{RUBY_VERSION}",
+  # Overstock rejects my requests with a regular Ruby User-Agent. Use Firefox.
+  'User-Agent' => 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.14; ' \
+    'rv:68.0) Gecko/20100101 Firefox/68.0',
   'From' => 'spensterc@yahoo.com',
   'Referer' => 'http://www.ruby-lang.org/'
 }.freeze
@@ -69,6 +71,10 @@ TARGET_URI =
   '&store_ids=1357' \
   '&key=eb2551e4accc14f38cc42d32fbc2b2ea'
 
+OVERSTOCK_URI =
+  'https://www.overstock.com/Electronics/Televisions/2171/cat.html' \
+  '?format=fusion'
+
 BEST_BUY_CONFIG = {
   store: 'Best Buy',
   base_url: 'https://www.bestbuy.com',
@@ -94,6 +100,15 @@ TARGET_CONFIG = {
   title_query: %w[title].freeze,
   price_query: %w[price current_retail].freeze,
   url_query: %w[url].freeze
+}.freeze
+
+OVERSTOCK_CONFIG = {
+  store: 'Overstock',
+  base_url: 'https://www.overstock.com',
+  item_query: %w[products],
+  title_query: %w[name].freeze,
+  price_query: %w[pricing current priceBreakdown price].freeze,
+  url_query: %w[urls productPage].freeze
 }.freeze
 
 COSTCO_CONFIG = {
@@ -401,7 +416,9 @@ class JsonScraper < ScraperBase
   private
 
   def fetch(item, query)
-    Maybe.new(item.dig(*query))
+    Maybe
+      .new(item.dig(*query))
+      .or_effect { puts "Could not fetch field: #{query}" if DEBUG }
   end
 
   def item_title(item)
@@ -443,7 +460,8 @@ def get_json(uri, store, page)
   Dir.mkdir(store_dir) unless Dir.exist?(store_dir)
 
   unless File.readable?(path)
-    URI.parse(uri).open(URI_OPTIONS) { |f| File.write(path, f.read) }
+    options = URI_OPTIONS.merge('Accept' => 'application/json')
+    URI.parse(uri).open(options) { |f| File.write(path, f.read) }
   end
 
   JSON.parse(File.read(path))
@@ -480,6 +498,16 @@ def target_results(uri)
     start = per * (page - 1)
     scraper.results(
       get_json("#{uri}&count=#{per}&offset=#{start}", 'Target', page),
+      page
+    )
+  end.flatten
+end
+
+def overstock_results(uri)
+  scraper = JsonScraper.new(OVERSTOCK_CONFIG)
+  Parallel.map(1..4) do |page|
+    scraper.results(
+      get_json("#{uri}&page=#{page}", 'Overstock', page),
       page
     )
   end.flatten
@@ -560,7 +588,8 @@ tasks = [
   -> { walmart_results(WALMART_URI) },
   -> { frys_results(FRYS_URI) },
   -> { newegg_results(NEWEGG_URI) },
-  -> { target_results(TARGET_URI) }
+  -> { target_results(TARGET_URI) },
+  -> { overstock_results(OVERSTOCK_URI) }
 ]
 
 results =
