@@ -445,7 +445,10 @@ def get_doc(uri, store, page)
   Dir.mkdir(store_dir) unless Dir.exist?(store_dir)
 
   unless File.readable?(path)
-    URI.parse(uri).open(URI_OPTIONS) { |f| File.write(path, f.read) }
+    puts "Fetching web page at #{uri} (page #{page})"
+    # Have to do this for BestBuy, the Firefox agent wasn't working
+    options = URI_OPTIONS.merge('User-Agent' => "Ruby/#{RUBY_VERSION}")
+    URI.parse(uri).open(options) { |f| File.write(path, f.read) }
   end
 
   Nokogiri::HTML(File.read(path))
@@ -514,6 +517,12 @@ def overstock_results(uri)
 end
 
 def fetch_next_amazon_results(doc, page)
+  # Let's not get carried away
+  return [] if page > 20
+
+  # Let's not go too fast, either
+  sleep 0.2
+
   text_at(doc, '#pagnNextLink @href')
     .or_else { text_at(doc, '.a-pagination .a-last a @href') }
     .map { |ref| ref.match?(/^https:/) ? ref : "https://www.amazon.com#{ref}" }
