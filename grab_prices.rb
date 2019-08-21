@@ -88,7 +88,7 @@ WALMART_CONFIG = {
 }.freeze
 
 TARGET_CONFIG = {
-  store: 'TARGET',
+  store: 'Target',
   base_url: 'https://www.target.com',
   item_query: %w[search_response items Item],
   title_query: %w[title].freeze,
