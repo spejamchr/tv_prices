@@ -443,11 +443,18 @@ class JsonScraper < ScraperBase
 
   def item_price(item)
     fetch(item, price_query)
-      .map { |n|  "%.2f" % n }
+      .map { |n| format('%.2f', n) }
       .map { |s| s.reverse.scan(/(\d*\.\d{1,3}|\d{1,3})/).join(',').reverse }
       .map { |s| "$#{s}" }
       .or_effect { item_url(item).effect { |a| p a if DEBUG } }
   end
+end
+
+def save_url_to(uri, path)
+  puts "Fetching web page at #{uri}"
+  # Have to do this for BestBuy, the Firefox agent wasn't working
+  options = URI_OPTIONS.merge('User-Agent' => "Ruby/#{RUBY_VERSION}")
+  URI.parse(uri).open(options) { |f| File.write(path, f.read) }
 end
 
 def get_doc(uri, store, page)
@@ -457,13 +464,7 @@ def get_doc(uri, store, page)
 
   Dir.mkdir(cached_dir) unless Dir.exist?(cached_dir)
   Dir.mkdir(store_dir) unless Dir.exist?(store_dir)
-
-  unless File.readable?(path)
-    puts "Fetching web page at #{uri} (page #{page})"
-    # Have to do this for BestBuy, the Firefox agent wasn't working
-    options = URI_OPTIONS.merge('User-Agent' => "Ruby/#{RUBY_VERSION}")
-    URI.parse(uri).open(options) { |f| File.write(path, f.read) }
-  end
+  save_url_to(uri, path) unless File.readable?(path)
 
   Nokogiri::HTML(File.read(path))
 end
