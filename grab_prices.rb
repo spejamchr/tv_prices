@@ -329,7 +329,7 @@ end
 # Scrapers must define private methods which recieve a TV list item:
 #   - item_title
 #   - item_price
-#   - item_url
+#   - item_ref
 #
 # And should define a public `results` method
 #
@@ -367,6 +367,19 @@ class ScraperBase
       .assign(:price) { item_price(item) }
       .assign(:url) { item_url(item) }
   end
+
+  def url_from_ref(ref)
+    if ref.match?(/^https?:/)
+      ref
+    else
+      ref = ref.match?(%r{^/}) ? ref : "/#{ref}"
+      "#{base_url}#{ref}"
+    end
+  end
+
+  def item_url(item)
+    item_ref(item).map { |ref| url_from_ref(ref) }
+  end
 end
 
 # Parse TV info from an HTML page
@@ -395,9 +408,8 @@ class HtmlTvScraper < ScraperBase
       .gsub(/\s+/, ' ')
   end
 
-  def item_url(item)
+  def item_ref(item)
     text_at(item, url_query)
-      .map { |ref| ref.match?(/^https?:/) ? ref : "#{base_url}#{ref}" }
   end
 
   def item_price(item)
@@ -425,9 +437,8 @@ class JsonScraper < ScraperBase
     fetch(item, title_query).get_or_else('')
   end
 
-  def item_url(item)
+  def item_ref(item)
     fetch(item, url_query)
-      .map { |ref| ref.match?(/^https:/) ? ref : "#{base_url}#{ref}" }
   end
 
   def item_price(item)
