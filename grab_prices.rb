@@ -373,13 +373,9 @@ class ScraperBase
   end
 
   def url_from_ref(ref)
-    ref = ref.split(';')[0] # Remove odd ending on Frys links
-    if ref.match?(/^https?:/)
-      ref
-    else
-      ref = ref.match?(%r{^/}) ? ref : "/#{ref}"
-      "#{base_url}#{ref}"
-    end
+    uri = URI.parse(ref.gsub(';', '?'))
+    uri = uri.absolute? ? uri : URI.parse(base_url) + uri
+    'https://' + uri.normalize.select(:host, :path).join
   end
 
   def item_url(item)
