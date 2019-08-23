@@ -176,7 +176,7 @@ ALL_CONFIGS = [
   FRYS_CONFIG,
   NEWEGG_CONFIG,
   TARGET_CONFIG,
-  OVERSTOCK_CONFIG,
+  OVERSTOCK_CONFIG
 ].freeze
 
 # Represent a possibly present value
@@ -394,7 +394,6 @@ class TvScraper
   def all_results
     Parallel.flat_map(1..pages) { |page| fetch_results(page) }
   end
-
 
   private
 
