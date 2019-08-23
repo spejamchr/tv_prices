@@ -46,14 +46,7 @@ COSTCO_URI =
   'ads_f110001_ntk_cs%253A%2522OLED%2522|'
 
 AMAZON_URI =
-  'https://www.amazon.com/Televisions-Television-Video/s' \
-  '?i=electronics' \
-  '&bbn=172659' \
-  '&rh=n%3A172659%2Cp_72%3A1248879011%2Cp_n_condition-type%3A2224371011' \
-  '&dc' \
-  '&qid=1566078437' \
-  '&rnid=2224369011' \
-  '&ref=sr_nr_p_n_condition-type_1'
+  'https://www.amazon.com/Televisions-Television-Video/s?rh=n%3A172659'
 
 WALMART_URI =
   'https://www.walmart.com/search/api/preso' \
@@ -372,14 +365,19 @@ class ScraperBase
       .assign(:url) { item_url(item) }
   end
 
+  def item_url_from_ref(ref)
+    url_from_ref(ref)
+    'https://' + url_from_ref(ref).select(:host, :path).join
+  end
+
   def url_from_ref(ref)
     uri = URI.parse(ref.gsub(';', '?'))
     uri = uri.absolute? ? uri : URI.parse(base_url) + uri
-    'https://' + uri.normalize.select(:host, :path).join
+    uri.normalize
   end
 
   def item_url(item)
-    item_ref(item).map { |ref| url_from_ref(ref) }
+    item_ref(item).map { |ref| item_url_from_ref(ref) }
   end
 end
 
@@ -417,36 +415,6 @@ class HtmlTvScraper < ScraperBase
     text_at(item, price_query)
       .map { |s| s.match(/\$[\d\,]+(\.\d\d)?/)&.to_s }
       .or_effect { item_url(item).effect { |a| p a if DEBUG } }
-  end
-end
-
-# Amazon pagination is difficult... Follow it by scraping it
-class AmazonPageScraper < HtmlTvScraper
-  def initialize
-    super(AMAZON_CONFIG)
-  end
-
-  def fetch_results(uri, page = 1)
-    # Let's not get carried away
-    return [] if page > 20
-
-    # Let's not go too fast, either
-    sleep 0.2
-    doc = get_doc(uri, store, page)
-    results = HtmlTvScraper.new(args).results(doc, page)
-
-    results +
-      next_link(doc)
-      .map { |new_uri| fetch_results(new_uri, page + 1) }
-      .get_or_else([])
-  end
-
-  private
-
-  def next_link(doc)
-    text_at(doc, '#pagnNextLink @href')
-      .or_else { text_at(doc, '.a-pagination .a-last a @href') }
-      .map { |ref| url_from_ref(ref) }
   end
 end
 
@@ -558,23 +526,13 @@ def overstock_results(uri)
   end.flatten
 end
 
-def use_cached_amazon_results(uri, pages)
-  scraper = HtmlTvScraper.new(AMAZON_CONFIG)
-  Parallel.map(1..pages) do |page|
-    scraper.results(get_doc(uri, 'Amazon', page), page)
-  end.flatten
-end
-
 def amazon_results(uri)
-  store_dir = File.join(CACHED_DIR, 'Amazon')
-  Dir.mkdir(store_dir) unless Dir.exist?(store_dir)
+  scraper = HtmlTvScraper.new(AMAZON_CONFIG)
+  Parallel.map(1..20) do |page|
+    page_uri = "#{uri}&page=#{page}"
 
-  pages = Dir[File.join(store_dir, '*')].count
-  if pages.zero?
-    AmazonPageScraper.new.fetch_results(uri)
-  else
-    use_cached_amazon_results(uri, pages)
-  end
+    scraper.results(get_doc(page_uri, 'Amazon', page), page)
+  end.flatten
 end
 
 def frys_results(uri)
