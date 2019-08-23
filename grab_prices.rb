@@ -369,6 +369,7 @@ class ScraperBase
   end
 
   def url_from_ref(ref)
+    ref = ref.split(';')[0] # Remove odd ending on Frys links
     if ref.match?(/^https?:/)
       ref
     else
