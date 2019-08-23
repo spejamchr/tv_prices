@@ -71,76 +71,113 @@ OVERSTOCK_URI =
   '?format=fusion'
 
 BEST_BUY_CONFIG = {
+  type: 'html',
   store: 'Best Buy',
   base_url: 'https://www.bestbuy.com',
   item_query: '.sku-item',
   title_query: '.information .sku-title a',
   price_query: '.price-block .priceView-hero-price.priceView-customer-price',
-  url_query: '.information .sku-title a @href'
+  url_query: '.information .sku-title a @href',
+  pagination: ->(page) { "#{BEST_BUY_URI}&cp=#{page}" },
+  pages: 12
 }.freeze
 
 WALMART_CONFIG = {
+  type: 'json',
   store: 'Walmart',
   base_url: 'https://www.walmart.com',
   item_query: %w[items],
   title_query: %w[title].freeze,
   price_query: %w[primaryOffer offerPrice].freeze,
-  url_query: %w[productPageUrl].freeze
+  url_query: %w[productPageUrl].freeze,
+  pagination: ->(page) { "#{WALMART_URI}&page=#{page}" },
+  pages: 13
 }.freeze
 
 TARGET_CONFIG = {
+  type: 'json',
   store: 'Target',
   base_url: 'https://www.target.com',
   item_query: %w[search_response items Item],
   title_query: %w[title].freeze,
   price_query: %w[price current_retail].freeze,
-  url_query: %w[url].freeze
+  url_query: %w[url].freeze,
+  pagination: ->(page) { "#{TARGET_URI}&count=24&offset=#{24 * (page - 1)}" },
+  pages: 3
 }.freeze
 
 OVERSTOCK_CONFIG = {
+  type: 'json',
   store: 'Overstock',
   base_url: 'https://www.overstock.com',
   item_query: %w[products],
   title_query: %w[name].freeze,
   price_query: %w[pricing current priceBreakdown price].freeze,
-  url_query: %w[urls productPage].freeze
+  url_query: %w[urls productPage].freeze,
+  pagination: ->(page) { "#{OVERSTOCK_URI}&page=#{page}" },
+  pages: 4
 }.freeze
 
 COSTCO_CONFIG = {
+  type: 'html',
   store: 'Costco',
   base_url: 'https://www.costco.com',
   item_query: '.product',
   title_query: '.description a',
   price_query: '.caption .price',
-  url_query: '.description a @href'
+  url_query: '.description a @href',
+  pagination: ->(_) { COSTCO_URI },
+  pages: 1
 }.freeze
 
 AMAZON_CONFIG = {
+  type: 'html',
   store: 'Amazon',
   base_url: 'https://www.amazon.com',
   item_query: '.s-result-item',
   title_query: 'img @alt',
   price_query: '.a-offscreen',
-  url_query: 'a @href'
+  url_query: 'a @href',
+  pagination: ->(page) { "#{AMAZON_URI}&page=#{page}" },
+  pages: 20
 }.freeze
 
 FRYS_CONFIG = {
+  type: 'html',
   store: 'Frys',
   base_url: 'https://www.frys.com',
   item_query: '.product',
   title_query: '.productDescp a',
   price_query: '.toGridPriceHeight ul li .red_txt',
-  url_query: '.productDescp a @href'
+  url_query: '.productDescp a @href',
+  pagination: lambda do |page|
+    "#{FRYS_URI}?page=#{page}&start=#{20 * (page - 1)}&rows=20"
+  end,
+  pages: 20
 }.freeze
 
 NEWEGG_CONFIG = {
+  type: 'html',
   store: 'Newegg',
   base_url: 'https://www.newegg.com',
   item_query: '.item-container',
   title_query: '.item-info .item-title',
   price_query: '.item-action .price-current',
-  url_query: '.item-info a.item-title @href'
+  url_query: '.item-info a.item-title @href',
+  pagination: ->(page) { "#{NEWEGG_URI}&page=#{page}" },
+  pages: 29
 }.freeze
+
+ALL_CONFIGS = [
+  BEST_BUY_CONFIG,
+  COSTCO_CONFIG,
+  AMAZON_CONFIG,
+  WALMART_CONFIG,
+  FRYS_CONFIG,
+  NEWEGG_CONFIG,
+  TARGET_CONFIG,
+  OVERSTOCK_CONFIG,
+].freeze
 
 # Represent a possibly present value
 class Maybe
@@ -321,15 +358,26 @@ end
 
 # Parent of all scrapers
 #
-# Scrapers must define private methods which recieve a TV list item:
-#   - item_title
-#   - item_price
-#   - item_ref
+# Sub-scrapers must end in "TvScraper"
 #
-# And should define a public `results` method
+# Scrapers must define private methods:
+#   - item_title : Receives a TV list item, returns a title string
+#   - item_price : Receives a TV list item, returns a string price
+#   - item_ref : Receives a TV list item, returns a string url/ref
+#   - items : Receives an integer page number, returns an array of items
 #
-class ScraperBase
+class TvScraper
   include ParseTitle
+  @types = {}
+
+  def self.inherited(child_class)
+    type = child_class.to_s.chomp(to_s).downcase.to_sym
+    @types[type] = child_class
+  end
+
+  def self.all_results(config)
+    @types.fetch(config.fetch(:type).to_sym).new(config).all_results
+  end
 
   def initialize(**args)
     @args = args
@@ -339,7 +387,14 @@ class ScraperBase
     @title_query = args.fetch(:title_query)
     @price_query = args.fetch(:price_query)
     @url_query = args.fetch(:url_query)
+    @pagination = args.fetch(:pagination)
+    @pages = args.fetch(:pages)
   end
+
+  def all_results
+    Parallel.flat_map(1..pages) { |page| fetch_results(page) }
+  end
+
 
   private
 
@@ -350,11 +405,13 @@ class ScraperBase
     :item_query,
     :title_query,
     :price_query,
-    :url_query
+    :url_query,
+    :pagination,
+    :pages
   )
 
-  def fetch_results(items, page)
-    only_justs(items.map { |i| attributes(i) })
+  def fetch_results(page)
+    only_justs(items(page).map { |i| attributes(i) })
       .map { |attrs| attrs.merge(page: page) }
   end
 
@@ -382,12 +439,14 @@ class ScraperBase
 end
 
 # Parse TV info from an HTML page
-class HtmlTvScraper < ScraperBase
-  def results(html, page)
-    fetch_results(html.search(item_query), page)
-  end
-
+class HtmlTvScraper < TvScraper
   private
+
+  def items(page)
+    uri = pagination.call(page)
+    html = get_html(uri, store, page)
+    html.search(item_query)
+  end
 
   def text_at(doc, css_path)
     Maybe
@@ -419,12 +478,14 @@ class HtmlTvScraper < ScraperBase
 end
 
 # Parse TV info from a list of JSON objects
-class JsonScraper < ScraperBase
-  def results(json, page)
-    fetch_results(fetch(json, item_query).get_or_else([]), page)
-  end
-
+class JsonTvScraper < TvScraper
   private
+
+  def items(page)
+    uri = pagination.call(page)
+    json = get_json(uri, store, page)
+    fetch(json, item_query).get_or_else([])
+  end
 
   def fetch(item, query)
     Maybe
@@ -449,108 +510,33 @@ class JsonScraper < ScraperBase
   end
 end
 
-def save_url_to(uri, path)
-  puts "Fetching web page at #{uri}"
-  # Have to do this for BestBuy, the Firefox agent wasn't working
-  options = URI_OPTIONS.merge('User-Agent' => "Ruby/#{RUBY_VERSION}")
-  URI.parse(uri).open(options) { |f| File.write(path, f.read) }
-end
-
-def get_doc(uri, store, page)
-  store_dir = File.join(CACHED_DIR, store)
-  path = File.join(store_dir, "page_#{page}.html")
-
-  Dir.mkdir(store_dir) unless Dir.exist?(store_dir)
-  save_url_to(uri, path) unless File.readable?(path)
-
-  Nokogiri::HTML(File.read(path))
-end
-
-def get_json(uri, store, page)
-  store_dir = File.join(CACHED_DIR, store)
-  path = File.join(store_dir, "page_#{page}.json")
-
-  Dir.mkdir(store_dir) unless Dir.exist?(store_dir)
+def get_from_cache_or_web(uri, store, page)
+  path = File.join(store_dir(store), "page_#{page}.html")
 
   unless File.readable?(path)
-    options = URI_OPTIONS.merge('Accept' => 'application/json')
+    puts "Fetching web page at #{uri}"
+    options = block_given? ? yield(URI_OPTIONS) : URI_OPTIONS
     URI.parse(uri).open(options) { |f| File.write(path, f.read) }
   end
 
-  JSON.parse(File.read(path))
+  File.read(path)
 end
 
-def best_buy_results(uri)
-  scraper = HtmlTvScraper.new(BEST_BUY_CONFIG)
-  Parallel.map(1..12) do |page|
-    scraper.results(get_doc("#{uri}&cp=#{page}", 'BestBuy', page), page)
-  end.flatten
+def get_html(uri, store, page)
+  html = get_from_cache_or_web(uri, store, page) do |options|
+    # Have to do this for BestBuy, the Firefox agent wasn't working
+    options.merge('User-Agent' => "Ruby/#{RUBY_VERSION}")
+  end
+
+  Nokogiri::HTML(html)
 end
 
-def costco_results(uri)
-  HtmlTvScraper
-    .new(COSTCO_CONFIG)
-    .results(get_doc(uri, 'Costco', 1), 1)
-    .flatten
-end
+def get_json(uri, store, page)
+  json = get_from_cache_or_web(uri, store, page) do |options|
+    options.merge('Accept' => 'application/json')
+  end
 
-def walmart_results(uri)
-  scraper = JsonScraper.new(WALMART_CONFIG)
-  Parallel.map(1..13) do |page|
-    scraper.results(
-      get_json("#{uri}&page=#{page}", 'Walmart', page),
-      page
-    )
-  end.flatten
-end
-
-def target_results(uri)
-  per = 24
-  scraper = JsonScraper.new(TARGET_CONFIG)
-  Parallel.map(1..3) do |page|
-    start = per * (page - 1)
-    scraper.results(
-      get_json("#{uri}&count=#{per}&offset=#{start}", 'Target', page),
-      page
-    )
-  end.flatten
-end
-
-def overstock_results(uri)
-  scraper = JsonScraper.new(OVERSTOCK_CONFIG)
-  Parallel.map(1..4) do |page|
-    scraper.results(
-      get_json("#{uri}&page=#{page}", 'Overstock', page),
-      page
-    )
-  end.flatten
-end
-
-def amazon_results(uri)
-  scraper = HtmlTvScraper.new(AMAZON_CONFIG)
-  Parallel.map(1..20) do |page|
-    page_uri = "#{uri}&page=#{page}"
-
-    scraper.results(get_doc(page_uri, 'Amazon', page), page)
-  end.flatten
-end
-
-def frys_results(uri)
-  per = 20
-  scraper = HtmlTvScraper.new(FRYS_CONFIG)
-  Parallel.map(1..20) do |page|
-    start = per * (page - 1)
-    page_uri = "#{uri}?page=#{page}&start=#{start}&rows=#{per}"
-
-    scraper.results(get_doc(page_uri, 'Frys', page), page)
-  end.flatten
-end
-
-def newegg_results(uri)
-  scraper = HtmlTvScraper.new(NEWEGG_CONFIG)
-  Parallel.map(1..29) do |page|
-    scraper.results(get_doc("#{uri}&page=#{page}", 'Newegg', page), page)
-  end.flatten
+  JSON.parse(json)
 end
 
 def just_number(string)
@@ -558,31 +544,32 @@ def just_number(string)
 end
 
 def sortable_array(hash)
+  # I'm intentionally leaving out the title
   [
     just_number(hash[:size]),
     hash[:tech],
     just_number(hash[:resolution]),
     just_number(hash[:price]),
-    *hash.values_at(:brand, :store, :page, :url)
+    hash[:brand],
+    hash[:store],
+    just_number(hash[:page]),
+    hash[:url]
   ]
+end
+
+def store_dir(store)
+  File.join(CACHED_DIR, store)
 end
 
 Dir.mkdir(CACHED_DIR) unless Dir.exist?(CACHED_DIR)
 
-tasks = [
-  -> { best_buy_results(BEST_BUY_URI) },
-  -> { costco_results(COSTCO_URI) },
-  -> { amazon_results(AMAZON_URI) },
-  -> { walmart_results(WALMART_URI) },
-  -> { frys_results(FRYS_URI) },
-  -> { newegg_results(NEWEGG_URI) },
-  -> { target_results(TARGET_URI) },
-  -> { overstock_results(OVERSTOCK_URI) }
-]
+Parallel.each(ALL_CONFIGS.map { |cfg| cfg.fetch(:store) }) do |store|
+  Dir.mkdir(store_dir(store)) unless Dir.exist?(store_dir(store))
+end
 
 results =
   Parallel
-  .flat_map(tasks, &:call)
+  .flat_map(ALL_CONFIGS) { |cfg| TvScraper.all_results(cfg) }
   .sort_by { |i| sortable_array(i) }
   .group_by { |i| i[:url] }
   .values
