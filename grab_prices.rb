@@ -13,6 +13,8 @@ require 'Parallel'
 
 DEBUG = false
 
+CACHED_DIR = 'cached_pages'
+
 HEADERS = %i[
   url
   page
@@ -337,6 +339,7 @@ class ScraperBase
   include ParseTitle
 
   def initialize(**args)
+    @args = args
     @store = args.fetch(:store)
     @base_url = args.fetch(:base_url)
     @item_query = args.fetch(:item_query)
@@ -348,6 +351,7 @@ class ScraperBase
   private
 
   attr_reader(
+    :args,
     :store,
     :base_url,
     :item_query,
@@ -420,6 +424,36 @@ class HtmlTvScraper < ScraperBase
   end
 end
 
+# Amazon pagination is difficult... Follow it by scraping it
+class AmazonPageScraper < HtmlTvScraper
+  def initialize
+    super(AMAZON_CONFIG)
+  end
+
+  def fetch_results(uri, page = 1)
+    # Let's not get carried away
+    return [] if page > 20
+
+    # Let's not go too fast, either
+    sleep 0.2
+    doc = get_doc(uri, store, page)
+    results = HtmlTvScraper.new(args).results(doc, page)
+
+    results +
+      next_link(doc)
+      .map { |new_uri| fetch_results(new_uri, page + 1) }
+      .get_or_else([])
+  end
+
+  private
+
+  def next_link(doc)
+    text_at(doc, '#pagnNextLink @href')
+      .or_else { text_at(doc, '.a-pagination .a-last a @href') }
+      .map { |ref| url_from_ref(ref) }
+  end
+end
+
 # Parse TV info from a list of JSON objects
 class JsonScraper < ScraperBase
   def results(json, page)
@@ -459,11 +493,9 @@ def save_url_to(uri, path)
 end
 
 def get_doc(uri, store, page)
-  cached_dir = 'cached_pages'
-  store_dir = File.join(cached_dir, store)
+  store_dir = File.join(CACHED_DIR, store)
   path = File.join(store_dir, "page_#{page}.html")
 
-  Dir.mkdir(cached_dir) unless Dir.exist?(cached_dir)
   Dir.mkdir(store_dir) unless Dir.exist?(store_dir)
   save_url_to(uri, path) unless File.readable?(path)
 
@@ -471,11 +503,9 @@ def get_doc(uri, store, page)
 end
 
 def get_json(uri, store, page)
-  cached_dir = 'cached_pages'
-  store_dir = File.join(cached_dir, store)
+  store_dir = File.join(CACHED_DIR, store)
   path = File.join(store_dir, "page_#{page}.json")
 
-  Dir.mkdir(cached_dir) unless Dir.exist?(cached_dir)
   Dir.mkdir(store_dir) unless Dir.exist?(store_dir)
 
   unless File.readable?(path)
@@ -532,27 +562,6 @@ def overstock_results(uri)
   end.flatten
 end
 
-def fetch_next_amazon_results(doc, page)
-  # Let's not get carried away
-  return [] if page > 20
-
-  # Let's not go too fast, either
-  sleep 0.2
-
-  text_at(doc, '#pagnNextLink @href')
-    .or_else { text_at(doc, '.a-pagination .a-last a @href') }
-    .map { |ref| ref.match?(/^https:/) ? ref : "https://www.amazon.com#{ref}" }
-    .map { |new_uri| amazon_results(new_uri, page + 1) }
-    .get_or_else([])
-end
-
-def fetch_amazon_results(uri, page = 1)
-  doc = get_doc("#{uri}&page=#{page}&ref=sr_pg_#{page}", 'Amazon', page)
-  results = HtmlTvScraper.new(AMAZON_CONFIG).results(doc, page)
-
-  results + fetch_next_amazon_results(doc, page)
-end
-
 def use_cached_amazon_results(uri, pages)
   scraper = HtmlTvScraper.new(AMAZON_CONFIG)
   Parallel.map(1..pages) do |page|
@@ -561,16 +570,14 @@ def use_cached_amazon_results(uri, pages)
 end
 
 def amazon_results(uri)
-  cached_dir = 'cached_pages'
-  store_dir = File.join(cached_dir, 'Amazon')
-  if Dir.exist?(store_dir)
-    pages = Dir[File.join(store_dir, '*')].count
-    use_cached_amazon_results(uri, pages)
-  else
-    Dir.mkdir(cached_dir) unless Dir.exist?(cached_dir)
-    Dir.mkdir(store_dir)
+  store_dir = File.join(CACHED_DIR, 'Amazon')
+  Dir.mkdir(store_dir) unless Dir.exist?(store_dir)
 
-    fetch_amazon_results(uri)
+  pages = Dir[File.join(store_dir, '*')].count
+  if pages.zero?
+    AmazonPageScraper.new.fetch_results(uri)
+  else
+    use_cached_amazon_results(uri, pages)
   end
 end
 
@@ -605,6 +612,8 @@ def sortable_array(hash)
     *hash.values_at(:brand, :store, :page, :url)
   ]
 end
+
+Dir.mkdir(CACHED_DIR) unless Dir.exist?(CACHED_DIR)
 
 tasks = [
   -> { best_buy_results(BEST_BUY_URI) },
