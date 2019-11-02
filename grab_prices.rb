@@ -16,6 +16,8 @@ DEBUG = false
 
 CACHED_DIR = 'cached_pages'
 LAST_UPDATED_FILE = 'last_updated'
+
+HISTORY_DIR = 'history'
 CSV_NAME = 'scraped_televisions.csv'
 
 HEADERS = %i[
@@ -567,6 +569,8 @@ def last_updated_file
   File.join(CACHED_DIR, LAST_UPDATED_FILE)
 end
 
+Dir.mkdir(HISTORY_DIR) unless Dir.exists?(HISTORY_DIR)
+
 unless Dir.exists?(CACHED_DIR)
   Dir.mkdir(CACHED_DIR)
   File.write(last_updated_file, Time.now.to_i)
@@ -584,11 +588,14 @@ results =
   .values
   .map(&:first)
 
-filename = [File.read(last_updated_file), CSV_NAME].join('_')
+history_filename = [File.read(last_updated_file), CSV_NAME].join('_')
+history_path = File.join(HISTORY_DIR, history_filename)
 
-CSV.open(filename, 'wb') do |csv|
+CSV.open(history_path, 'wb') do |csv|
   csv << HEADERS
   results.each { |attrs| csv << HEADERS.map { |key| attrs[key] } }
 end
 
-FileUtils.cp(filename, CSV_NAME)
+# The history of prices is kept twice: Once in the HISTORY_DIR, and once in the
+# git history of the CSV_NAME file.
+FileUtils.cp(history_path, CSV_NAME)
