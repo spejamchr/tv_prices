@@ -10,10 +10,13 @@ require 'HTTParty'
 require 'open-uri'
 require 'nokogiri'
 require 'Parallel'
+require 'fileutils'
 
 DEBUG = false
 
 CACHED_DIR = 'cached_pages'
+LAST_UPDATED_FILE = 'last_updated'
+CSV_NAME = 'scraped_televisions.csv'
 
 HEADERS = %i[
   url
@@ -560,7 +563,14 @@ def store_dir(store)
   File.join(CACHED_DIR, store)
 end
 
-Dir.mkdir(CACHED_DIR) unless Dir.exist?(CACHED_DIR)
+def last_updated_file
+  File.join(CACHED_DIR, LAST_UPDATED_FILE)
+end
+
+unless Dir.exists?(CACHED_DIR)
+  Dir.mkdir(CACHED_DIR)
+  File.write(last_updated_file, Time.now.to_i)
+end
 
 Parallel.each(ALL_CONFIGS.map { |cfg| cfg.fetch(:store) }) do |store|
   Dir.mkdir(store_dir(store)) unless Dir.exist?(store_dir(store))
@@ -574,7 +584,11 @@ results =
   .values
   .map(&:first)
 
-CSV.open('scraped_televisions.csv', 'wb') do |csv|
+filename = [File.read(last_updated_file), CSV_NAME].join('_')
+
+CSV.open(filename, 'wb') do |csv|
   csv << HEADERS
   results.each { |attrs| csv << HEADERS.map { |key| attrs[key] } }
 end
+
+FileUtils.cp(filename, CSV_NAME)
