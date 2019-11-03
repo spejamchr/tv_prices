@@ -43,4 +43,4 @@ end
 
 # The history of prices is kept twice: Once in the HISTORY_DIR, and once in the
 # git history of the CSV_NAME file.
-FileUtils.cp(history_path, C::CSV_NAME)
+FileUtils.cp(history_path, File.join(C::HISTORY_DIR, C::CSV_NAME))
