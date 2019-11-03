@@ -46,11 +46,7 @@ module TvPrices
       'https://www.bestbuy.com/site/tvs/all-flat-screen-tvs/abcat0101001.c' \
       '?qp=condition_facet%3DCondition~New'
 
-    COSTCO_URI =
-      'https://www.costco.com/televisions.html' \
-      '?display-type=led-lcd+oled' \
-      '&refine=ads_f110001_ntk_cs%253A%2522LED-LCD%2522|' \
-      'ads_f110001_ntk_cs%253A%2522OLED%2522|'
+    COSTCO_URI = 'https://www.costco.com/televisions.html'
 
     AMAZON_URI =
       'https://www.amazon.com/Televisions-Television-Video/s?rh=n%3A172659'
