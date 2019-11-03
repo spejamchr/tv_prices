@@ -25,8 +25,6 @@ module TvPrices
           .map(&:first)
       end
 
-      private
-
       def just_number(string)
         string.to_s.gsub(/[^\d\.]/, '').to_f
       end

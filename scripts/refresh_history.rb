@@ -28,19 +28,13 @@ module TvPrices
   end
 end
 
-Parallel.each(Dir.glob(File.join(C::HISTORY_DIR, '*.csv'))) do |path|
-  csv = CSV.read(path)
-  header = csv.first.map(&:to_sym)
-
-  data =
-    csv[1..]
-    .map { |row| header.zip(row).to_h }
-    .map { |row| TvPrices::Refresher.attributes(row) }
-    .yield_self { |rows| TvPrices::Maybe.only_justs(rows) }
-    .yield_self { |rows| TvPrices::SortResults.sort_results(rows) }
-
+TvPrices.map_histories do |path, data|
   CSV.open(path, 'wb') do |csv|
     csv << C::HEADERS
-    data.each { |attrs| csv << C::HEADERS.map  { |key| attrs[key] } }
+    data
+      .map { |row| TvPrices::Refresher.attributes(row) }
+      .yield_self { |rows| TvPrices::Maybe.only_justs(rows) }
+      .yield_self { |rows| TvPrices::SortResults.sort_results(rows) }
+      .each { |attrs| csv << C::HEADERS.map  { |key| attrs[key] } }
   end
 end
