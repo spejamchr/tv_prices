@@ -4,6 +4,7 @@ require 'Parallel'
 require 'open-uri'
 
 require_relative 'parse_title'
+require_relative 'format_price'
 
 # Parent of all scrapers
 #
@@ -18,6 +19,8 @@ require_relative 'parse_title'
 module TvPrices
   class TvScraper
     include ParseTitle
+    include FormatPrice
+
     @types = {}
 
     def self.inherited(child_class)
@@ -65,14 +68,20 @@ module TvPrices
     )
 
     def fetch_results(page)
-      TvPrices.only_justs(items(page).map { |i| attributes(i) })
+      TvPrices::Maybe.only_justs(items(page).map { |i| attributes(i) })
         .map { |attrs| attrs.merge(page: page) }
+    end
+
+    def formatted_price(item)
+      item_price(item)
+        .map { |s| format_price(s) }
+        .or_effect { item_url(item).effect { |a| p a if Config::DEBUG } }
     end
 
     def attributes(item)
       basic_attributes(item_title(item))
         .assign(:store) { store }
-        .assign(:price) { item_price(item) }
+        .assign(:price) { formatted_price(item) }
         .assign(:url) { item_url(item) }
     end
 

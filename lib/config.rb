@@ -1,9 +1,12 @@
 # frozen_string_literal: true
 
-# This file contains configuration for various parts of the scraper
+# Configuration for various parts of the scraper
 #
 # Most of it shouldn't be changed much. However, the DEBUG constant is fine to
 # change between runs. It would be nice to make it a runtime argument instead.
+#
+# It would also be nice to make this a text file, maybe JSON, YAML, or TOML,
+# but the pagination configuration values are lambdas.
 module TvPrices
   module Config
     # Whether to output debug-level logging statements
@@ -17,15 +20,15 @@ module TvPrices
 
     # CSV Headers
     HEADERS = %i[
-    url
-    page
-    title
-    store
-    brand
-    tech
-    size
-    resolution
-    price
+      url
+      page
+      title
+      store
+      brand
+      tech
+      size
+      resolution
+      price
     ].freeze
 
     URI_OPTIONS = {

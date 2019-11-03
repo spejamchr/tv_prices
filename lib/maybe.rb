@@ -3,12 +3,28 @@
 # Represent a possibly present value
 module TvPrices
   class Maybe
-    def self.nothing
-      new(nil)
-    end
+    class << self
+      def nothing
+        new(nil)
+      end
 
-    def self.just(val)
-      new(val)
+      def just(val)
+        new(val)
+      end
+
+      def map_maybe(maybes)
+        return to_enum(:map_maybe, maybes) unless block_given?
+
+        results = []
+        maybes.each do |maybe|
+          maybe.effect { |val| results << yield(val) }
+        end
+        results
+      end
+
+      def only_justs(maybes)
+        map_maybe(maybes, &:itself)
+      end
     end
 
     def initialize(val)
@@ -55,19 +71,5 @@ module TvPrices
     def just?
       val[:kind] == :just
     end
-  end
-
-  def self.map_maybe(maybes)
-    return to_enum(:map_maybe, maybes) unless block_given?
-
-    results = []
-    maybes.each do |maybe|
-      maybe.effect { |val| results << yield(val) }
-    end
-    results
-  end
-
-  def self.only_justs(maybes)
-    map_maybe(maybes, &:itself)
   end
 end

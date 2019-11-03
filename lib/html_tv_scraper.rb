@@ -53,7 +53,6 @@ module TvPrices
     def item_price(item)
       text_at(item, price_query)
         .map { |s| s.match(/\$[\d\,]+(\.\d\d)?/)&.to_s }
-        .or_effect { item_url(item).effect { |a| p a if Config::DEBUG } }
     end
   end
 end

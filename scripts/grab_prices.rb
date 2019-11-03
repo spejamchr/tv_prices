@@ -31,10 +31,7 @@ end
 results =
   Parallel
   .flat_map(C::ALL_CONFIGS) { |cfg| TvPrices::TvScraper.all_results(cfg) }
-  .sort_by { |i| TvPrices.sortable_array(i) }
-  .group_by { |i| i[:url] }
-  .values
-  .map(&:first)
+  .yield_self { |rows| TvPrices::SortResults.sort_results(rows) }
 
 history_filename = [File.read(TvPrices.last_updated_file), C::CSV_NAME].join('_')
 history_path = File.join(C::HISTORY_DIR, history_filename)

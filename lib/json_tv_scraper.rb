@@ -41,10 +41,6 @@ module TvPrices
 
     def item_price(item)
       fetch(item, price_query)
-        .map { |n| format('%.2f', n) }
-        .map { |s| s.reverse.scan(/(\d*\.\d{1,3}|\d{1,3})/).join(',').reverse }
-        .map { |s| "$#{s}" }
-        .or_effect { item_url(item).effect { |a| p a if Config::DEBUG } }
     end
   end
 end
