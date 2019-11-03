@@ -9,11 +9,7 @@ require 'csv'
 require 'Parallel'
 require 'fileutils'
 
-require './lib/config'
-require './lib/tv_prices'
-require './lib/tv_scraper'
-require './lib/html_tv_scraper'
-require './lib/json_tv_scraper'
+require_relative '../lib/tv_prices'
 
 # Shorthand
 C = TvPrices::Config

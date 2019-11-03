@@ -33,3 +33,10 @@ module TvPrices
     end
   end
 end
+
+require_relative 'get_from_cache_or_web'
+require_relative 'html_tv_scraper'
+require_relative 'json_tv_scraper'
+require_relative 'maybe'
+require_relative 'parse_title'
+require_relative 'tv_scraper'
