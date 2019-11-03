@@ -1,0 +1,20 @@
+GEM
+  remote: https://rubygems.org/
+  specs:
+    mini_portile2 (2.4.0)
+    nokogiri (1.10.5)
+      mini_portile2 (~> 2.4.0)
+    parallel (1.18.0)
+
+PLATFORMS
+  ruby
+
+DEPENDENCIES
+  nokogiri!
+  parallel!
+
+RUBY VERSION
+   ruby 2.6.2p47
+
+BUNDLED WITH
+   2.0.2
