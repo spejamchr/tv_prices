@@ -64,12 +64,13 @@ Run some simple analysis on the historical records.
 ## Scraping Stores
 
 Stores can be scraped either in HTML or JSON. Adding a new store to scrape is
-done entirely within [`config/application.yml`][config], and takes about a dozen lines of
-code. Currently scraped stores are:
+done entirely within [`config/application.yml`][config], and takes about a dozen
+lines of code. Currently scraped stores are:
 
 - [Amazon][amazon] (HTML)
 - [Best Buy][bestbuy] (HTML)
 - [Costco][costco] (HTML)
+- [Ebay][ebay] (HTML)
 - [Fry's][frys] (HTML)
 - [Newegg][newegg] (HTML)
 - [Overstock][overstock] (JSON)
@@ -84,6 +85,7 @@ All code and data are released under the terms of the [MIT License][mit].
 [amazon]: https://www.amazon.com
 [bestbuy]: https://www.bestbuy.com
 [costco]: https://www.costco.com
+[ebay]: https://www.ebay.com
 [frys]: https://www.frys.com
 [newegg]: https://www.newegg.com
 [overstock]: https://www.overstock.com

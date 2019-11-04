@@ -58,6 +58,17 @@ ALL_CONFIGS:
     pagination: '{search_url}'
     pages: 1
 
+  - store: 'Ebay'
+    type: 'html'
+    base_url: 'https://www.ebay.com'
+    search_url: '{base_url}/b/TVs/11071/bn_738302?LH_BIN=1&LH_FS=1&LH_RPA=1&rt=nc'
+    item_query: '.s-item'
+    title_query: '.s-item__title'
+    price_query: '.s-item__price'
+    url_query: '.s-item__link @href'
+    pagination: '{search_url}&_pgn={&page}'
+    pages: 20
+
   - store: 'Frys'
     type: 'html'
     base_url: 'https://www.frys.com'
