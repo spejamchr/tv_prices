@@ -48,9 +48,11 @@ module TvPrices
     end
 
     def all_results
-      Parallel.flat_map(1..pages) { |page| fetch_results(page) }
-    rescue Errno::ECONNRESET
-      []
+      Parallel.flat_map(1..pages) do |page|
+        fetch_results(page)
+      rescue Errno::ECONNRESET, OpenURI::HTTPError
+        []
+      end
     end
 
     private

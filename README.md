@@ -64,7 +64,7 @@ Run some simple analysis on the historical records.
 ## Scraping Stores
 
 Stores can be scraped either in HTML or JSON. Adding a new store to scrape is
-done entirely within [`lib/config.rb`][config], and takes about a dozen lines of
+done entirely within [`config/application.yml`][config], and takes about a dozen lines of
 code. Currently scraped stores are:
 
 - [Amazon][amazon] (HTML)
@@ -80,7 +80,7 @@ code. Currently scraped stores are:
 
 All code and data are released under the terms of the [MIT License][mit].
 
-[config]: https://github.com/spejamchr/tv_prices/blob/master/lib/config.rb
+[config]: https://github.com/spejamchr/tv_prices/blob/master/config/application.yml
 [amazon]: https://www.amazon.com
 [bestbuy]: https://www.bestbuy.com
 [costco]: https://www.costco.com
