@@ -64,7 +64,7 @@ module TvPrices
     end
 
     def nk_matcher(title)
-      find_match(title, /\b\dk\b/i)
+      find_match(title, /(?<!-)\b\dk\b(?!-)/i)
         .map { |nk| k_to_p(nk) }
     end
 
@@ -73,6 +73,7 @@ module TvPrices
         .nothing
         .or_else { find_match(title, /\buhd\b/i).map { '2160p' } }
         .or_else { find_match(title, /\bultra hd\b/i).map { '2160p' } }
+        .or_else { find_match(title, /\bultra hdtv\b/i).map { '2160p' } }
     end
 
     def hd_matcher(title)
