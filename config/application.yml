@@ -106,7 +106,7 @@ ALL_CONFIGS:
   - store: 'Target'
     type: 'json'
     base_url: 'https://www.target.com'
-    search_url: '{base_url}/v2/plp/search/?category=5xtdj&default_purchasability_filter=true&pricing_store_id=1357&store_ids=1357&key=eb2551e4accc14f38cc42d32fbc2b2ea'
+    search_url: 'https://redsky.target.com/v2/plp/search/?category=5xtdj&default_purchasability_filter=true&pricing_store_id=1357&store_ids=1357&key=eb2551e4accc14f38cc42d32fbc2b2ea'
     item_query: [search_response, items, Item]
     title_query: [title]
     price_query: [price, current_retail]
